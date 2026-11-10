@@ -28,72 +28,17 @@ jobs:
             SDKM="$(find /tmp/clt -name sdkmanager -type f | head -1)"
             chmod +x "$SDKM"
           fi
-          echo "sdkmanager=$SDKM"
           yes | "$SDKM" --licenses >/dev/null 2>&1 || true
           "$SDKM" "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
-          echo "--- platforms ---"; ls "$SDK/platforms" || true
-          echo "--- build-tools ---"; ls "$SDK/build-tools" || true
+          ls "$SDK/platforms" || true
 
-     - name: 生成とビルド
+      - name: 生成とビルド
         run: |
           set -x
           sed -i 's/\r$//' make-bundle.sh
           bash make-bundle.sh 2>&1 | tee bundle.log
+          cp ci/AndroidManifest.xml fakegps-tier1/app/src/main/AndroidManifest.xml
           cd fakegps-tier1
-          python3 - <<'PY'
-          import pathlib
-          mf = next(pathlib.Path("app/src/main").glob("AndroidManifest.xml"))
-          mf.write_text('''<?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              xmlns:tools="http://schemas.android.com/tools">
-
-              <uses-permission android:name="android.permission.ACCESS_MOCK_LOCATION" tools:ignore="ProtectedPermissions" />
-              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-              <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-              <uses-permission android:name="android.permission.WAKE_LOCK" />
-              <uses-permission android:name="android.permission.INTERNET" />
-              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-              <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-              <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-
-              <application
-                  android:allowBackup="false"
-                  android:icon="@drawable/ic_pin"
-                  android:label="@string/app_name"
-                  android:supportsRtl="true"
-                  android:theme="@style/Theme.FakeGps">
-
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-
-                  <service
-                      android:name=".MockLocationService"
-                      android:exported="false"
-                      android:foregroundServiceType="location" />
-
-                  <receiver
-                      android:name=".BootReceiver"
-                      android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.BOOT_COMPLETED" />
-                          <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                      </intent-filter>
-                  </receiver>
-              </application>
-          </manifest>
-          ''')
-          PY
           chmod +x gradlew
           ./gradlew --no-daemon --console=plain assembleDebug --stacktrace 2>&1 | tee ../gradle.log
 
@@ -109,8 +54,15 @@ jobs:
             echo '```'
             tail -n 60 gradle.log 2>/dev/null || echo '(なし)'
             echo '```'
-            echo '## bundle.log 末尾'
-            echo '```'
-            tail -n 30 bundle.log 2>/dev/null || echo '(なし)'
-            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: logs-and-apk
+          path: |
+            bundle.log
+            gradle.log
+            fakegps-tier1/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: warn
+          retention-days: 3
