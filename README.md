@@ -67,7 +67,37 @@ scripts/geo-route.sh -f scripts/sample-route.txt       # 複数地点を歩行�
 - `run-emulator.sh` は `appops set ... android:mock_location allow` で、開発者オプションの
   「仮の現在地情報アプリ」設定も自動で済ませます。
 - `geo.sh` はエミュレータ自体の GPS を動かすので、アプリを使わずに位置を変えられます。
-- Windows では Android Studio の Device Manager で仮想端末を作成してください。
+- Windows では Android Studio を使います（下記）。
+
+## Android エミュレータで使う（Windows）
+
+Windows ではシェルスクリプトは使えないので、Android Studio を使うのが確実です。
+
+1. **Android Studio をインストール**（<https://developer.android.com/studio>）。
+   初回起動時のウィザードで Android SDK・エミュレータ・システムイメージが入ります。
+2. **仮想端末を作る**：Android Studio → 右上の **Device Manager** → **Create Device**
+   → 端末（例: Pixel 6）を選び、システムイメージ（例: API 34）をダウンロードして **Finish**。
+3. **このプロジェクトを開く**：**Open** でこのフォルダを選び、Gradle 同期を待ちます。
+4. **エミュレータで実行**：ツールバーで実行対象を作った仮想端末にして **Run ▶**。
+   photobridge がビルドされ、エミュレータにインストール・起動します。
+5. **「仮の現在地情報アプリ」に設定**（photobridge を試す場合）：
+   エミュレータ内の 設定 → システム → 開発者向けオプション → 「仮の現在地情報アプリを選択」
+   で photobridge を選びます。
+6. **エミュレータの GPS 座標を設定**：次のどちらか。
+   - エミュレータ右側の **…（Extended controls）→ Location** で緯度・経度を入れて **Send**。
+     GPX/KML でルート再生もできます。
+   - コマンドで設定（開発者向け）：
+
+     ```bat
+     scripts\windows\geo.bat 35.681236 139.767125
+     ```
+
+     `geo.bat` は `adb emu geo fix` を呼ぶだけの薄いラッパーです。`ANDROID_HOME` が未設定なら
+     `%LOCALAPPDATA%\Android\Sdk` を使います。
+
+> エミュレータの GPS（`geo fix` / Extended controls）から届く位置は、エミュレータの
+> ハードウェア GPS 扱いなので `isMock()` は `false` になります。自分のアプリの位置まわりの
+> 開発・テストはこの方法で行えます。
 
 ## 使い方（実機）
 
