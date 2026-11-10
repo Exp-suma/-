@@ -11,33 +11,34 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: 環境の下ごしらえ
+      - name: SDK 準備
         run: |
           set -x
-          java -version
-          python3 -V
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          ls "$ANDROID_HOME/platforms" 2>/dev/null || true
-          ls "$ANDROID_HOME/build-tools" 2>/dev/null || true
-          if [ ! -d "$ANDROID_HOME/platforms/android-34" ]; then
-            if command -v sdkmanager >/dev/null; then
-              yes | sdkmanager --licenses >/dev/null 2>&1 || true
-              sdkmanager "platforms;android-34" "build-tools;34.0.0"
-            elif command -v android >/dev/null; then
-              android sdk install "platforms;android-34" "build-tools;34.0.0" || true
-            fi
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_HOME="$SDK" ANDROID_SDK_ROOT="$SDK"
+          SDKM=""
+          if [ -x "$SDK/cmdline-tools/latest/bin/sdkmanager" ]; then
+            SDKM="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          elif command -v sdkmanager >/dev/null 2>&1; then
+            SDKM="$(command -v sdkmanager)"
           fi
-          # 改行コードを LF に揃える（CRLF 対策）
-          sed -i 's/\r$//' make-bundle.sh
-          file make-bundle.sh
-          head -1 make-bundle.sh
-          bash -n make-bundle.sh
+          if [ -z "$SDKM" ]; then
+            curl -fsSL -o /tmp/clt.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+            mkdir -p /tmp/clt && unzip -q /tmp/clt.zip -d /tmp/clt
+            SDKM="$(find /tmp/clt -name sdkmanager -type f | head -1)"
+            chmod +x "$SDKM"
+          fi
+          echo "sdkmanager=$SDKM"
+          yes | "$SDKM" --licenses >/dev/null 2>&1 || true
+          "$SDKM" "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
+          echo "--- platforms ---"; ls "$SDK/platforms" || true
+          echo "--- build-tools ---"; ls "$SDK/build-tools" || true
 
-      - name: ソース生成
-        run: bash make-bundle.sh
-
-      - name: 再起動レシーバを登録
+      - name: 生成とビルド
         run: |
+          set -x
+          sed -i 's/\r$//' make-bundle.sh
+          bash make-bundle.sh 2>&1 | tee bundle.log
           cd fakegps-tier1
           python3 - <<'PY'
           import pathlib
@@ -53,15 +54,16 @@ jobs:
                   '        </receiver>\n    </application>')
               mf.write_text(s)
           PY
-
-      - name: APK ビルド
-        run: |
-          cd fakegps-tier1
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew --no-daemon --console=plain assembleDebug --stacktrace 2>&1 | tee ../gradle.log
 
       - uses: actions/upload-artifact@v5
+        if: always()
         with:
-          name: app-debug
-          path: fakegps-tier1/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 7
+          name: logs-and-apk
+          path: |
+            bundle.log
+            gradle.log
+            fakegps-tier1/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: warn
+          retention-days: 3
