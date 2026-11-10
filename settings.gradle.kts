@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "FakeGps"
+rootProject.name = "PhotoBridge"
 include(":app")

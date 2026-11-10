@@ -1,3 +1,3 @@
 <resources>
-    <style name="Theme.FakeGps" parent="Theme.Material3.DayNight.NoActionBar" />
+    <style name="Theme.PhotoBridge" parent="Theme.Material3.DayNight.NoActionBar" />
 </resources>

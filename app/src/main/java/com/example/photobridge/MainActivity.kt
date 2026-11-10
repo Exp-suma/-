@@ -1,4 +1,4 @@
-package com.example.fakegps
+package com.example.photobridge
 
 import android.Manifest
 import android.app.AppOpsManager
@@ -28,7 +28,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var switchWalk: MaterialSwitch
     private lateinit var txtStatus: TextView
 
-    private val prefs by lazy { getSharedPreferences("fakegps", Context.MODE_PRIVATE) }
+    private val prefs by lazy { getSharedPreferences("photobridge", Context.MODE_PRIVATE) }
 
     private val presets = listOf(
         "東京駅" to (35.681236 to 139.767125),

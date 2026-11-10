@@ -1,4 +1,4 @@
-package com.example.fakegps
+package com.example.photobridge
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -213,7 +213,7 @@ class MockLocationService : Service() {
     }
 
     companion object {
-        const val ACTION_STOP = "com.example.fakegps.STOP"
+        const val ACTION_STOP = "com.example.photobridge.STOP"
         const val EXTRA_LAT = "lat"
         const val EXTRA_LNG = "lng"
         const val EXTRA_ACCURACY = "accuracy"

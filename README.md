@@ -1,4 +1,4 @@
-# 偽GPS（Fake GPS / Mock Location）
+# photobridge（Fake GPS / Mock Location）
 
 指定した緯度・経度を端末の「現在地」として他のアプリに取得させる Android アプリです。
 Android 標準の **疑似ロケーション（モックロケーション）** 機能を使っており、root化は不要です。
@@ -25,11 +25,27 @@ Android 標準の **疑似ロケーション（モックロケーション）** 
 
 Android Studio でこのフォルダを開いて実行することもできます。
 
-## 使い方
+## Android エミュレータで使う（macOS / Linux）
+
+```bash
+scripts/setup-emulator.sh   # SDK・エミュレータ・システムイメージ導入、AVD 作成、APK ビルド
+scripts/run-emulator.sh     # エミュレータ起動 → アプリをインストール・権限付与・起動
+scripts/geo.sh 35.681236 139.767125   # エミュレータの仮想 GPS の位置を直接設定
+```
+
+- `ANDROID_HOME` が未設定なら `~/Library/Android/sdk`（mac）/ `~/Android/Sdk`（Linux）を使います。
+- Apple Silicon では arm64、それ以外では x86_64 のイメージ（API 34, Google APIs）を使います。
+- エミュレータには CPU の仮想化支援が必要です（Linux は KVM、mac は標準で対応）。
+- `run-emulator.sh` は `appops set ... android:mock_location allow` で、開発者オプションの
+  「仮の現在地情報アプリ」設定も自動で済ませます。
+- `geo.sh` はエミュレータ自体の GPS を動かすので、アプリを使わずに位置を変えられます。
+- Windows では Android Studio の Device Manager で仮想端末を作成してください。
+
+## 使い方（実機）
 
 1. APK をインストール
 2. **設定 → 端末情報 → ビルド番号** を7回タップして開発者オプションを有効化
-3. **設定 → システム → 開発者向けオプション → 仮の現在地情報アプリを選択** で「偽GPS」を選ぶ
+3. **設定 → システム → 開発者向けオプション → 仮の現在地情報アプリを選択** で「photobridge」を選ぶ
 4. アプリを開き、座標を入力（またはプリセットを選択）して「偽の位置を配信開始」
 5. 位置情報の権限と通知の権限を許可
 6. 地図アプリなどで現在地が変わっていることを確認

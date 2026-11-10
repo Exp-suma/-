@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.fakegps"
+    namespace = "com.example.photobridge"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.fakegps"
+        applicationId = "com.example.photobridge"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

@@ -17,7 +17,7 @@
         android:icon="@drawable/ic_pin"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.FakeGps">
+        android:theme="@style/Theme.PhotoBridge">
 
         <activity
             android:name=".MainActivity"
