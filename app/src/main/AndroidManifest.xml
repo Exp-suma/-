@@ -5,7 +5,7 @@
     <!-- 開発者オプションの「仮の現在地情報アプリ」に選択されるために必要 -->
     <uses-permission
         android:name="android.permission.ACCESS_MOCK_LOCATION"
-        tools:ignore="ProtectedPermissions" />
+        tools:ignore="ProtectedPermissions,MockLocation" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -27,6 +27,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".LocationTestActivity"
+            android:exported="false" />
 
         <service
             android:name=".MockLocationService"

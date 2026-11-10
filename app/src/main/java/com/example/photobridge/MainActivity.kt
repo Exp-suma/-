@@ -85,6 +85,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnStop).setOnClickListener {
             startService(Intent(this, MockLocationService::class.java).setAction(MockLocationService.ACTION_STOP))
         }
+        findViewById<Button>(R.id.btnLocationTest).setOnClickListener {
+            startActivity(Intent(this, LocationTestActivity::class.java))
+        }
     }
 
     override fun onResume() {

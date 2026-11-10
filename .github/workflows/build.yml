@@ -24,12 +24,19 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon
+      - name: Build debug and test APKs
+        run: ./gradlew assembleDebug assembleReleaseTest --no-daemon
 
-      - name: Upload APK
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: photobridge-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload releaseTest APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: photobridge-releaseTest-apk
+          path: app/build/outputs/apk/releaseTest/app-releaseTest.apk
           if-no-files-found: error

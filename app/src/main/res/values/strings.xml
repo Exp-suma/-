@@ -13,4 +13,6 @@
     <string name="notif_title">偽の位置情報を配信中</string>
     <string name="not_mock_app">このアプリが「仮の現在地情報アプリ」に設定されていません。開発者オプションで選択してください。</string>
     <string name="invalid_coords">緯度は -90〜90、経度は -180〜180 の数値を入力してください</string>
+    <string name="location_test_title">位置受信テスト</string>
+    <string name="open_location_test">位置受信テストを開く</string>
 </resources>

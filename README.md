@@ -72,6 +72,26 @@ scripts/geo-route.sh -f scripts/sample-route.txt       # 複数地点を歩行�
 6. 地図アプリなどで現在地が変わっていることを確認
 7. 終了するときはアプリまたは通知の「停止」を押す
 
+## 開発者向け: 偽装検出のテスト（buildType）
+
+このアプリには「位置を受け取る側」のサンプル画面（メイン画面の「位置受信テストを開く」）があり、
+受け取った位置が mock かどうかを判定します。その検出を無効化できるかは、ビルド時に固定される
+`BuildConfig.ALLOW_MOCK` だけで決まります。実行時に切り替える手段（パスワード等の隠し経路）はありません。
+
+| buildType     | ALLOW_MOCK | 用途                                        | パッケージ |
+|---------------|-----------|---------------------------------------------|-----------|
+| `debug`       | true      | 開発。mock を受け入れてテスト               | `com.example.photobridge` |
+| `release`     | false     | 配布。mock は常に拒否（解除経路なし）       | `com.example.photobridge` |
+| `releaseTest` | true      | release に近い状態で mock を検証            | `com.example.photobridge.test` |
+
+```bash
+./gradlew assembleRelease      # 配布版（mock 拒否）
+./gradlew assembleReleaseTest  # テスト版（mock 可、.test として別アプリでインストール）
+```
+
+`releaseTest` は配布する `release` とは別アプリ（`.test`）として入るので、配布版には一切影響しません。
+検出まわりを本番に近い状態で確認したいときだけ使い、ユーザーに配るのは `release` です。
+
 ## 仕組み
 
 `MockLocationService` が `LocationManager.addTestProvider()` でテスト用プロバイダを登録し、
