@@ -84,20 +84,20 @@ Windows ではシェルスクリプトは使えないので、Android Studio を
    エミュレータ内の 設定 → システム → 開発者向けオプション → 「仮の現在地情報アプリを選択」
    で photobridge を選びます。
 6. **エミュレータの GPS 座標を設定**：次のどちらか。
-   - エミュレータ右側の **…（Extended controls）→ Location** で緯度・経度を入れて **Send**。
-     GPX/KML でルート再生もできます。
-   - コマンドで設定（開発者向け）：
+   コマンドで設定（開発者向け）：
 
-     ```bat
-     scripts\windows\geo.bat 35.681236 139.767125
-     ```
+   ```bat
+   scripts\windows\geo.bat
+   ```
 
-     `geo.bat` は `adb emu geo fix` を呼ぶだけの薄いラッパーです。`ANDROID_HOME` が未設定なら
-     `%LOCALAPPDATA%\Android\Sdk` を使います。
+   `geo.bat` は **PC(Windows) 自身の現在地**を Windows の位置情報サービスから取得し、
+   エミュレータをその地点に固定します。任意の座標は指定できません（PC の現在地のみ）。
+   事前に 設定 → プライバシーとセキュリティ → 位置情報 を ON にしてください。
+   `ANDROID_HOME` が未設定なら `%LOCALAPPDATA%\Android\Sdk` を使います。
 
-> エミュレータの GPS（`geo fix` / Extended controls）から届く位置は、エミュレータの
-> ハードウェア GPS 扱いなので `isMock()` は `false` になります。自分のアプリの位置まわりの
-> 開発・テストはこの方法で行えます。
+> エミュレータの GPS から届く位置は、エミュレータのハードウェア GPS 扱いなので
+> `isMock()` は `false` になります。自分のアプリの位置まわりの開発・テストに使えます。
+> `geo.bat` は PC の現在地にしか固定しないため、別の場所にいるように見せかける用途には使えません。
 
 ## 使い方（実機）
 
