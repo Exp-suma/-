@@ -10,4 +10,6 @@
     <string name="location_test_title">位置受信テスト</string>
     <string name="open_location_test">位置受信テストを開く</string>
     <string name="current_only_note">このアプリは端末の実際の現在地にだけ位置を固定します。別の場所の座標を指定することはできません。固定した位置も mock として扱われ、isMock() は true のままです。</string>
+    <string name="share_csv">CSVで共有</string>
+    <string name="clear_log">ログを消去</string>
 </resources>

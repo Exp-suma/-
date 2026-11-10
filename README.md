@@ -129,6 +129,25 @@ Windows ではシェルスクリプトは使えないので、Android Studio を
 `releaseTest` は配布する `release` とは別アプリ（`.test`）として入るので、配布版には一切影響しません。
 検出まわりを本番に近い状態で確認したいときだけ使い、ユーザーに配るのは `release` です。
 
+## 実機で自分のアプリの位置まわりを確認する
+
+スマホを手元に持った状態で、端末だけで完結します。
+
+1. photobridge で「現在地に固定する」を押す（またはそのまま実際の GPS を使う）
+2. メイン画面の「位置受信テストを開く」
+3. 受信した位置が1件ずつ記録されます：時刻・✓受理/✗拒否・プロバイダ（gps/network）・
+   `mock`/`real`・座標・精度
+4. 「CSVで共有」でログをメール・Drive・メモなどに書き出せます
+   （列: `time,provider,latitude,longitude,accuracy_m,is_mock,accepted,build_type,allow_mock`）
+
+ビルドによって判定が変わるので、同じ操作で比較できます。
+
+- `debug` / `releaseTest`：mock も ✓受理（アプリの処理の先まで確認できる）
+- `release`：mock は ✗拒否（配布版で偽装位置を弾けているか確認できる）
+
+photobridge を止めて実際の GPS に戻すと `real` として記録されるので、
+本物の GPS と固定した位置の両方でアプリの挙動を比べられます。
+
 ## 仕組み
 
 `MockLocationService` が `LocationManager.addTestProvider()` でテスト用プロバイダを登録し、
