@@ -1,0 +1,52 @@
+name: apk
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: SDK 準備
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+
+      - name: ソース生成
+        run: |
+          chmod +x make-bundle.sh
+          ./make-bundle.sh
+
+      - name: 再起動レシーバを登録
+        run: |
+          cd fakegps-tier1
+          python3 - <<'PY'
+          import pathlib
+          mf = next(pathlib.Path("app/src/main").glob("AndroidManifest.xml"))
+          s = mf.read_text()
+          if 'android:name=".BootReceiver"' not in s:
+              s = s.replace("</application>",
+                  '        <receiver android:name=".BootReceiver" android:exported="true">\n'
+                  '            <intent-filter>\n'
+                  '                <action android:name="android.intent.action.BOOT_COMPLETED" />\n'
+                  '                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />\n'
+                  '            </intent-filter>\n'
+                  '        </receiver>\n    </application>')
+              mf.write_text(s)
+          PY
+
+      - name: APK ビルド
+        run: |
+          cd fakegps-tier1
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: fakegps-tier1/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
