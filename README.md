@@ -44,8 +44,15 @@ PC がなくても、GitHub Actions が自動で APK をビルドします。コ
 ```bash
 scripts/setup-emulator.sh   # SDK・エミュレータ・システムイメージ導入、AVD 作成、APK ビルド
 scripts/run-emulator.sh     # エミュレータ起動 → アプリをインストール・権限付与・起動
-scripts/geo.sh 35.681236 139.767125   # エミュレータの仮想 GPS の位置を直接設定
+scripts/geo.sh 35.681236 139.767125   # 1点を送る
+scripts/geo-route.sh 35.681236,139.767125              # その座標を保持（再送し続ける）
+scripts/geo-route.sh -f scripts/sample-route.txt       # 複数地点を歩行速度でつないで移動
 ```
+
+- エミュレータから届く位置は実機の GPS と同じ扱いなので、`Location.isMock()` は `false` になります
+  （検出するアプリのテストに使えます）。
+- `geo-route.sh` は地点間を補間して送り続けます。`SPEED_MPS`（速度）, `INTERVAL`（送信間隔秒）,
+  `LOOP=1`（周回）, `HOLD`（1点保持の秒数）で調整できます。`DRY_RUN=1` で送信内容だけ確認できます。
 
 - `ANDROID_HOME` が未設定なら `~/Library/Android/sdk`（mac）/ `~/Android/Sdk`（Linux）を使います。
 - Apple Silicon では arm64、それ以外では x86_64 のイメージ（API 34, Google APIs）を使います。
