@@ -25,6 +25,20 @@ Android 標準の **疑似ロケーション（モックロケーション）** 
 
 Android Studio でこのフォルダを開いて実行することもできます。
 
+## スマホだけで使う（GitHub Actions でビルド）
+
+PC がなくても、GitHub Actions が自動で APK をビルドします。コードを push すると
+ワークフローが走り、スマホのブラウザから最新の APK をダウンロードできます。
+
+1. GitHub のリポジトリ → **Actions** タブ → 最新の **Build APK** を開く
+2. 下の **Artifacts** から `photobridge-debug-apk` をダウンロード（zip）
+3. 解凍して出てくる `app-debug.apk` をスマホにインストール
+4. 開発者オプション →「仮の現在地情報アプリを選択」で photobridge を選ぶ
+5. 座標を入れて「配信開始」
+
+> 疑似ロケーションを気にしないアプリ（多くの地図アプリなど）には効きますが、
+> `Location.isMock()` などで検出するアプリには効きません。
+
 ## Android エミュレータで使う（macOS / Linux）
 
 ```bash
