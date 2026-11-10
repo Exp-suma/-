@@ -18,9 +18,6 @@ import android.os.Looper
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.random.Random
 
 /**
  * LocationManager のテストプロバイダ機能を使って、端末の位置情報を
@@ -35,12 +32,10 @@ class MockLocationService : Service() {
     private var latitude = 0.0
     private var longitude = 0.0
     private var accuracy = 5f
-    private var walk = false
-    private var bearing = Random.nextDouble(0.0, 360.0)
 
     private val tick = object : Runnable {
         override fun run() {
-            if (walk) step()
+            // 現在地に固定するだけ。座標は動かさず、同じ地点を送り続ける。
             pushLocation()
             handler.postDelayed(this, UPDATE_INTERVAL_MS)
         }
@@ -60,7 +55,6 @@ class MockLocationService : Service() {
         latitude = intent?.getDoubleExtra(EXTRA_LAT, latitude) ?: latitude
         longitude = intent?.getDoubleExtra(EXTRA_LNG, longitude) ?: longitude
         accuracy = intent?.getFloatExtra(EXTRA_ACCURACY, accuracy) ?: accuracy
-        walk = intent?.getBooleanExtra(EXTRA_WALK, walk) ?: walk
 
         ServiceCompat.startForeground(
             this,
@@ -124,17 +118,6 @@ class MockLocationService : Service() {
         }
     }
 
-    /** 歩行速度 (約1.4m/s) でゆるやかに向きを変えながら移動する */
-    private fun step() {
-        bearing = (bearing + Random.nextDouble(-20.0, 20.0) + 360.0) % 360.0
-        val distance = WALK_SPEED_MPS * UPDATE_INTERVAL_MS / 1000.0
-        val rad = Math.toRadians(bearing)
-        val dLat = distance * cos(rad) / METERS_PER_DEGREE
-        val dLng = distance * sin(rad) / (METERS_PER_DEGREE * cos(Math.toRadians(latitude)))
-        latitude = (latitude + dLat).coerceIn(-90.0, 90.0)
-        longitude = ((longitude + dLng + 540.0) % 360.0) - 180.0
-    }
-
     private fun pushLocation() {
         for (name in activeProviders) {
             val location = Location(name).apply {
@@ -142,13 +125,11 @@ class MockLocationService : Service() {
                 longitude = this@MockLocationService.longitude
                 altitude = 10.0
                 accuracy = this@MockLocationService.accuracy
-                speed = if (walk) WALK_SPEED_MPS.toFloat() else 0f
-                bearing = this@MockLocationService.bearing.toFloat()
+                speed = 0f
                 time = System.currentTimeMillis()
                 elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
                 verticalAccuracyMeters = 3f
                 speedAccuracyMetersPerSecond = 0.5f
-                bearingAccuracyDegrees = 10f
             }
             try {
                 locationManager.setTestProviderLocation(name, location)
@@ -217,13 +198,10 @@ class MockLocationService : Service() {
         const val EXTRA_LAT = "lat"
         const val EXTRA_LNG = "lng"
         const val EXTRA_ACCURACY = "accuracy"
-        const val EXTRA_WALK = "walk"
 
         private const val CHANNEL_ID = "mock_location"
         private const val NOTIFICATION_ID = 1
         private const val UPDATE_INTERVAL_MS = 1000L
-        private const val WALK_SPEED_MPS = 1.4
-        private const val METERS_PER_DEGREE = 111_320.0
 
         @Volatile var isRunning = false
             private set

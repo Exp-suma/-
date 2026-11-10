@@ -1,12 +1,18 @@
 package com.example.photobridge
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.Process
 import android.provider.Settings
 import android.widget.Button
@@ -15,36 +21,30 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.google.android.material.chip.Chip
-import com.google.android.material.chip.ChipGroup
-import com.google.android.material.materialswitch.MaterialSwitch
-import com.google.android.material.textfield.TextInputEditText
 
+/**
+ * photobridge は「端末の実際の現在地に位置を固定する」ことだけを行う。
+ *
+ * 任意の座標を入力したり、別の場所のプリセットに飛ばしたり、歩行を
+ * 擬似的に動かしたりはできない。配信される座標は必ず端末の本当の現在地なので、
+ * 別の場所にいるように見せかける用途（勤怠の偽装、位置情報ゲームの不正など）には使えない。
+ *
+ * 固定した位置も OS からは mock として扱われ、isMock() は true のまま。
+ * この挙動を打ち消す手段は用意しない。
+ */
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var editLat: TextInputEditText
-    private lateinit var editLng: TextInputEditText
-    private lateinit var editAccuracy: TextInputEditText
-    private lateinit var switchWalk: MaterialSwitch
     private lateinit var txtStatus: TextView
-
-    private val prefs by lazy { getSharedPreferences("photobridge", Context.MODE_PRIVATE) }
-
-    private val presets = listOf(
-        "東京駅" to (35.681236 to 139.767125),
-        "大阪駅" to (34.702485 to 135.495951),
-        "札幌駅" to (43.068661 to 141.350755),
-        "那覇空港" to (26.206389 to 127.646389),
-        "NYタイムズスクエア" to (40.758000 to -73.985500),
-        "パリ エッフェル塔" to (48.858370 to 2.294481),
-    )
+    private lateinit var locationManager: LocationManager
+    private val handler = Handler(Looper.getMainLooper())
+    private var acquiring = false
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
             if (result[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
                 result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
             ) {
-                startMocking()
+                acquireCurrentLocationAndStart()
             } else {
                 Toast.makeText(this, "位置情報の権限が必要です", Toast.LENGTH_LONG).show()
             }
@@ -53,26 +53,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
-        editLat = findViewById(R.id.editLat)
-        editLng = findViewById(R.id.editLng)
-        editAccuracy = findViewById(R.id.editAccuracy)
-        switchWalk = findViewById(R.id.switchWalk)
-        txtStatus = findViewById(R.id.txtStatus)
-
-        editLat.setText(prefs.getString("lat", "35.681236"))
-        editLng.setText(prefs.getString("lng", "139.767125"))
-
-        val group = findViewById<ChipGroup>(R.id.presetGroup)
-        for ((label, coords) in presets) {
-            group.addView(Chip(this).apply {
-                text = label
-                setOnClickListener {
-                    editLat.setText(coords.first.toString())
-                    editLng.setText(coords.second.toString())
-                }
-            })
-        }
+        locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
 
         findViewById<Button>(R.id.btnDevOptions).setOnClickListener {
             try {
@@ -88,6 +69,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnLocationTest).setOnClickListener {
             startActivity(Intent(this, LocationTestActivity::class.java))
         }
+        txtStatus = findViewById(R.id.txtStatus)
     }
 
     override fun onResume() {
@@ -108,10 +90,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateStatus(running: Boolean) {
         val mockApp = if (isSelectedMockApp()) "設定済み ✓" else "未設定 ✗（開発者オプションで選択してください）"
-        val state = if (running) {
-            "配信中: %.6f, %.6f".format(MockLocationService.currentLat, MockLocationService.currentLng)
-        } else {
-            "停止中"
+        val state = when {
+            acquiring -> "現在地を取得中…"
+            running -> "現在地に固定中: %.6f, %.6f".format(MockLocationService.currentLat, MockLocationService.currentLng)
+            else -> "停止中"
         }
         txtStatus.text = "仮の現在地情報アプリ: $mockApp\n状態: $state"
     }
@@ -128,6 +110,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestPermissionsAndStart() {
+        if (!isSelectedMockApp()) {
+            Toast.makeText(this, R.string.not_mock_app, Toast.LENGTH_LONG).show()
+            return
+        }
         val needed = mutableListOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION,
@@ -138,28 +124,80 @@ class MainActivity : AppCompatActivity() {
         val missing = needed.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
-        if (missing.isEmpty()) startMocking() else permissionLauncher.launch(missing.toTypedArray())
+        if (missing.isEmpty()) acquireCurrentLocationAndStart()
+        else permissionLauncher.launch(missing.toTypedArray())
     }
 
-    private fun startMocking() {
-        val lat = editLat.text?.toString()?.trim()?.toDoubleOrNull()
-        val lng = editLng.text?.toString()?.trim()?.toDoubleOrNull()
-        val acc = editAccuracy.text?.toString()?.trim()?.toFloatOrNull() ?: 5f
-        if (lat == null || lng == null || lat !in -90.0..90.0 || lng !in -180.0..180.0) {
-            Toast.makeText(this, R.string.invalid_coords, Toast.LENGTH_LONG).show()
+    /**
+     * 端末の本当の現在地を1回だけ取得し、その座標で固定を開始する。
+     * ユーザーが座標を指定する余地はない（取得できた実測値のみを使う）。
+     * mock プロバイダを起動する前に実測値を取るため、取得値は本物の位置。
+     */
+    @SuppressLint("MissingPermission")
+    private fun acquireCurrentLocationAndStart() {
+        if (acquiring || MockLocationService.isRunning) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            Toast.makeText(this, "位置情報の権限が必要です", Toast.LENGTH_LONG).show()
             return
         }
-        if (!isSelectedMockApp()) {
-            Toast.makeText(this, R.string.not_mock_app, Toast.LENGTH_LONG).show()
-            return
-        }
-        prefs.edit().putString("lat", lat.toString()).putString("lng", lng.toString()).apply()
+        acquiring = true
+        updateStatus(false)
 
+        val providers = buildList {
+            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) add(LocationManager.GPS_PROVIDER)
+            if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) add(LocationManager.NETWORK_PROVIDER)
+        }
+        if (providers.isEmpty()) {
+            finishAcquire(null, "位置情報をオンにしてください")
+            return
+        }
+
+        var settled = false
+        val listeners = mutableListOf<Pair<String, LocationListener>>()
+        val timeout = Runnable {
+            if (settled) return@Runnable
+            // 単発取得が間に合わなければ、最後に分かっている実測値を使う
+            val last = providers.mapNotNull { locationManager.getLastKnownLocation(it) }
+                .maxByOrNull { it.time }
+            settled = true
+            listeners.forEach { (_, l) -> locationManager.removeUpdates(l) }
+            finishAcquire(last, if (last == null) "現在地を取得できませんでした。屋外などで再試行してください" else null)
+        }
+
+        for (provider in providers) {
+            val l = LocationListener { loc ->
+                if (settled) return@LocationListener
+                settled = true
+                handler.removeCallbacks(timeout)
+                listeners.forEach { (_, li) -> locationManager.removeUpdates(li) }
+                finishAcquire(loc, null)
+            }
+            listeners += provider to l
+            locationManager.requestLocationUpdates(provider, 0L, 0f, l, Looper.getMainLooper())
+        }
+        handler.postDelayed(timeout, 15_000L)
+    }
+
+    private fun finishAcquire(location: Location?, error: String?) {
+        acquiring = false
+        if (location == null) {
+            if (error != null) Toast.makeText(this, error, Toast.LENGTH_LONG).show()
+            updateStatus(false)
+            return
+        }
         val intent = Intent(this, MockLocationService::class.java)
-            .putExtra(MockLocationService.EXTRA_LAT, lat)
-            .putExtra(MockLocationService.EXTRA_LNG, lng)
-            .putExtra(MockLocationService.EXTRA_ACCURACY, acc.coerceAtLeast(1f))
-            .putExtra(MockLocationService.EXTRA_WALK, switchWalk.isChecked)
+            .putExtra(MockLocationService.EXTRA_LAT, location.latitude)
+            .putExtra(MockLocationService.EXTRA_LNG, location.longitude)
+            .putExtra(MockLocationService.EXTRA_ACCURACY, location.accuracy.coerceAtLeast(1f))
         ContextCompat.startForegroundService(this, intent)
+        Toast.makeText(
+            this,
+            "現在地に固定します: %.6f, %.6f".format(location.latitude, location.longitude),
+            Toast.LENGTH_LONG
+        ).show()
     }
 }
